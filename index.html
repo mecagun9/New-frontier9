@@ -11,55 +11,32 @@ html,body{margin:0;height:100%;background:#050505;color:#ddd;font-family:Consola
 <body>
 <div id="wrap">
 <canvas id="game" width="768" height="576"></canvas>
-<div id="help"><b>NEW FRONTIER 9 / VOID COURIER</b><br><br>ZX 스펙트럼풍 운송 로그라이트 1차 프로토타입.<br>구간 정보를 분석하고, 무엇을 실을지 결정한 뒤 수송선을 직접 몰고 돌파합니다.<br><br><span class="k">↑↓←→ / WASD</span> 이동<br><span class="k">SPACE</span> 발사<br><span class="k">Z</span> 실드 과충전<br><span class="k">X</span> 플레어 교란<br><span class="k">ENTER</span> 선택/진행<br><span class="k">BACKSPACE</span> 뒤로/적재 제거<br><span class="k">R</span> 재시작<br><br>마우스는 사용하지 않는 방향으로 설계.</div>
+<div id="help"><b>NEW FRONTIER 9 / VOID COURIER</b><br><br>ZX 스펙트럼풍 운송 로그라이트 1차 프로토타입.<br>구간 정보를 분석하고, 무엇을 실을지 결정한 뒤 수송선을 직접 몰고 돌파합니다.<br><br><span class="k">↑↓←→ / WASD</span> 이동<br><span class="k">SPACE</span> 발사<br><span class="k">Z</span> 실드 과충전<br><span class="k">X</span> 플레어 교란<br><span class="k">ENTER</span> 선택/진행<br><span class="k">BACKSPACE</span> 뒤로/적재 제거<br><span class="k">R</span> 재시작<br><br>메뉴에서는 1회 입력, 전투에서는 지속 입력.</div>
 </div>
-<div id="mobileControls" aria-label="mobile controls">
-  <div class="pad">
-    <button class="btn up" data-key="ArrowUp">▲</button>
-    <button class="btn left" data-key="ArrowLeft">◀</button>
-    <button class="btn right" data-key="ArrowRight">▶</button>
-    <button class="btn down" data-key="ArrowDown">▼</button>
-  </div>
-  <div class="act">
-    <button class="btn fire" data-key="Space">FIRE</button>
-    <button class="btn z" data-key="KeyZ">Z</button>
-    <button class="btn x" data-key="KeyX">X</button>
-    <button class="btn enter" data-key="Enter">OK</button>
-  </div>
-</div>
+<div id="mobileControls" aria-label="mobile controls"><div class="pad"><button class="btn up" data-key="ArrowUp">▲</button><button class="btn left" data-key="ArrowLeft">◀</button><button class="btn right" data-key="ArrowRight">▶</button><button class="btn down" data-key="ArrowDown">▼</button></div><div class="act"><button class="btn fire" data-key="Space">FIRE</button><button class="btn z" data-key="KeyZ">Z</button><button class="btn x" data-key="KeyX">X</button><button class="btn enter" data-key="Enter">OK</button></div></div>
 <script>
 (()=>{
 'use strict';
 const canvas=document.getElementById('game'),ctx=canvas.getContext('2d');ctx.imageSmoothingEnabled=false;
 const W=256,H=192,screen=document.createElement('canvas');screen.width=W;screen.height=H;const g=screen.getContext('2d');g.imageSmoothingEnabled=false;
 const C={black:'#000',blue:'#0000d7',red:'#d70000',mag:'#d700d7',green:'#00d700',cyan:'#00d7d7',yellow:'#d7d700',white:'#d7d7d7',bw:'#fff',br:'#f33',bg:'#3f3',bc:'#3ff',by:'#ff3'};
-const keys={};addEventListener('keydown',e=>{keys[e.code]=1;if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space','Backspace'].includes(e.code))e.preventDefault();if(e.code==='KeyR')reset()});addEventListener('keyup',e=>keys[e.code]=0);
-document.querySelectorAll('[data-key]').forEach(btn=>{const code=btn.dataset.key;const on=e=>{e.preventDefault();keys[code]=1;btn.classList.add('on')};const off=e=>{e&&e.preventDefault();keys[code]=0;btn.classList.remove('on')};btn.addEventListener('pointerdown',on);btn.addEventListener('pointerup',off);btn.addEventListener('pointercancel',off);btn.addEventListener('pointerleave',off)});
+const keys={},taps={};
+function isMenuMode(){return !S||S.mode!=='run'}
+addEventListener('keydown',e=>{if(!e.repeat)taps[e.code]=1;keys[e.code]=1;if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space','Backspace'].includes(e.code))e.preventDefault();if(e.code==='KeyR')reset()});
+addEventListener('keyup',e=>{keys[e.code]=0});
+document.querySelectorAll('[data-key]').forEach(btn=>{const code=btn.dataset.key;const down=e=>{e.preventDefault();btn.classList.add('on');if(isMenuMode()){taps[code]=1;keys[code]=1;setTimeout(()=>{if(isMenuMode())keys[code]=0},40)}else keys[code]=1};const up=e=>{e&&e.preventDefault();keys[code]=0;btn.classList.remove('on')};btn.addEventListener('pointerdown',down);btn.addEventListener('pointerup',up);btn.addEventListener('pointercancel',up);btn.addEventListener('pointerleave',up)});
 const rnd=(a,b)=>a+Math.random()*(b-a),clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
-const sectors=[
-{id:1,name:'SECTOR 01 / DEAD BEACON',free:'BIO LOW / DEBRIS LOW / SIGNAL STABLE',scan:['small swarm pockets ahead','ammo demand low; cargo capacity safe','rear ambush chance 22%; shields optional'],danger:1,swarm:.8,shoot:.12,mine:.04,debris:.03,dur:38,col:C.green},
-{id:2,name:'SECTOR 02 / RED SPORE TIDE',free:'BIO HIGH / SIGNAL BROKEN / LOSSES 7 SHIPS',scan:['dense assault organisms detected','high ammo burn; flare reduces lock-on','weak ranged presence; speed and fire rate favored'],danger:2,swarm:1.35,shoot:.15,mine:.08,debris:.04,dur:46,col:C.red},
-{id:3,name:'SECTOR 03 / BLACK ORBIT WRECKS',free:'DEBRIS HIGH / BIO MED / NAV CORRUPTED',scan:['collision risk extreme','shield and repair cargo favored','mines hidden in wreck shadow; avoid center lanes'],danger:3,swarm:.85,shoot:.25,mine:.35,debris:.18,dur:50,col:C.yellow},
-{id:4,name:'SECTOR 04 / HIVE MOUTH',free:'BIO EXTREME / SIGNAL SCREAMING / RETURN NONE',scan:['all readings moving toward convoy vector','balanced loadout required; cargo overload fatal','final wave targets cargo bay directly'],danger:4,swarm:1.55,shoot:.45,mine:.22,debris:.08,dur:58,col:C.mag}
-];
-const items=[
-{k:'sup',n:'SUPPLIES',d:'목적지 보상. 전투 도움 없음.',score:120},
-{k:'ammo',n:'AMMO CRATE',d:'탄약 +24. 공간 1칸 소모.',ammo:24},
-{k:'shield',n:'SHIELD CELL',d:'실드 +18. Z 과충전 효율 증가.',shield:18},
-{k:'people',n:'EVACUEES',d:'사람 수송. 도착 보상 큼, 피격 시 손실.',people:8,score:180},
-{k:'scan',n:'SCAN CORE',d:'분석 비용 감소. 더 깊은 구간 정보 판독.',scan:1},
-{k:'flare',n:'FLARE POD',d:'X 사용 횟수 +2. 군집 유도 교란.',flare:2},
-{k:'gun',n:'GUN PARTS',d:'연사력 증가. 탄약 소비도 빨라짐.',gun:1}
-];
+const sectors=[{id:1,name:'SECTOR 01 / DEAD BEACON',free:'BIO LOW / DEBRIS LOW / SIGNAL STABLE',scan:['small swarm pockets ahead','ammo demand low; cargo capacity safe','rear ambush chance 22%; shields optional'],danger:1,swarm:.8,shoot:.12,mine:.04,debris:.03,dur:38,col:C.green},{id:2,name:'SECTOR 02 / RED SPORE TIDE',free:'BIO HIGH / SIGNAL BROKEN / LOSSES 7 SHIPS',scan:['dense assault organisms detected','high ammo burn; flare reduces lock-on','weak ranged presence; speed and fire rate favored'],danger:2,swarm:1.35,shoot:.15,mine:.08,debris:.04,dur:46,col:C.red},{id:3,name:'SECTOR 03 / BLACK ORBIT WRECKS',free:'DEBRIS HIGH / BIO MED / NAV CORRUPTED',scan:['collision risk extreme','shield and repair cargo favored','mines hidden in wreck shadow; avoid center lanes'],danger:3,swarm:.85,shoot:.25,mine:.35,debris:.18,dur:50,col:C.yellow},{id:4,name:'SECTOR 04 / HIVE MOUTH',free:'BIO EXTREME / SIGNAL SCREAMING / RETURN NONE',scan:['all readings moving toward convoy vector','balanced loadout required; cargo overload fatal','final wave targets cargo bay directly'],danger:4,swarm:1.55,shoot:.45,mine:.22,debris:.08,dur:58,col:C.mag}];
+const items=[{k:'sup',n:'SUPPLIES',d:'목적지 보상. 전투 도움 없음.',score:120},{k:'ammo',n:'AMMO CRATE',d:'탄약 +24. 공간 1칸 소모.',ammo:24},{k:'shield',n:'SHIELD CELL',d:'실드 +18. Z 과충전 효율 증가.',shield:18},{k:'people',n:'EVACUEES',d:'사람 수송. 도착 보상 큼, 피격 시 손실.',people:8,score:180},{k:'scan',n:'SCAN CORE',d:'분석 비용 감소. 더 깊은 구간 정보 판독.',scan:1},{k:'flare',n:'FLARE POD',d:'X 사용 횟수 +2. 군집 유도 교란.',flare:2},{k:'gun',n:'GUN PARTS',d:'연사력 증가. 탄약 소비도 빨라짐.',gun:1}];
 let S,last=performance.now();
 function reset(){S={mode:'brief',si:0,analysis:0,budget:5,sel:0,load:[],slots:8,credits:0,msg:'ENTER: analyze or prepare',ship:null,bul:[],en:[],pt:[],stars:[],timer:0,spawn:0,result:null,l:{}};for(let i=0;i<70;i++)S.stars.push({x:rnd(0,W),y:rnd(24,H-14),s:Math.random()<.12?2:1})}
-function press(code,name){if(keys[code]&&!S.l[name]){S.l[name]=1;return true}if(!keys[code])S.l[name]=0;return false}
+function press(code,name){if(taps[code]){taps[code]=0;S.l[name]=1;return true}if(keys[code]&&!S.l[name]){S.l[name]=1;return true}if(!keys[code])S.l[name]=0;return false}
 function loadStats(){const r={ammo:0,shield:0,people:0,sup:0,scan:0,flare:0,gun:0,cells:0};for(const it of S.load){if(it.k==='ammo')r.ammo+=it.ammo;if(it.k==='shield'){r.shield+=it.shield;r.cells++}if(it.k==='people')r.people+=it.people;if(it.k==='sup')r.sup++;if(it.k==='scan')r.scan++;if(it.k==='flare')r.flare+=it.flare;if(it.k==='gun')r.gun++}return r}
 function cost(){return Math.max(1,2-loadStats().scan)}
 function startRun(){const L=loadStats();S.mode='run';S.ship={x:42,y:H/2,r:5,hp:100+L.shield,max:100+L.shield,cargo:100,ammo:44+L.ammo,flare:1+L.flare,gun:1+L.gun,people:L.people,sup:L.sup,cells:L.cells,speed:1.2-Math.max(0,S.load.length-6)*.025,cd:0,inv:0,over:0};S.bul=[];S.en=[];S.pt=[];S.timer=0;S.spawn=0;S.msg='DELIVER OR DIE'}
 function update(dt){if(S.mode==='brief')brief();else if(S.mode==='load')load();else if(S.mode==='run')run(dt);else if(S.mode==='result')result()}
 function brief(){if(press('Enter','e')){const c=cost();if(S.analysis<3&&S.budget>=c){S.analysis++;S.budget-=c;S.msg='SCAN DEPTH +'+S.analysis}else{S.mode='load';S.msg='SELECT CARGO / MODULES'}}if(press('Backspace','b')&&S.analysis>0){S.analysis--;S.budget+=cost()}}
-function load(){if(press('ArrowUp','u')||press('KeyW','u'))S.sel=(S.sel+items.length-1)%items.length;if(press('ArrowDown','d')||press('KeyS','d'))S.sel=(S.sel+1)%items.length;if(press('Enter','e')){if(S.load.length<S.slots)S.load.push(items[S.sel]);else startRun()}if(press('Backspace','b')){if(S.load.length)S.load.pop();else S.mode='brief'}if(keys.Space&&S.load.length)startRun()}
+function load(){if(press('ArrowUp','u')||press('KeyW','u'))S.sel=(S.sel+items.length-1)%items.length;if(press('ArrowDown','d')||press('KeyS','d'))S.sel=(S.sel+1)%items.length;if(press('Enter','e')){if(S.load.length<S.slots)S.load.push(items[S.sel]);else startRun()}if(press('Backspace','b')){if(S.load.length)S.load.pop();else S.mode='brief'}if(press('Space','sp')&&S.load.length)startRun()}
 function run(dt){const sh=S.ship,sec=sectors[S.si];S.timer+=dt;S.spawn-=dt;sh.cd-=dt;sh.inv-=dt;sh.over-=dt;for(const st of S.stars){st.x-=(18+sec.danger*6)*dt*st.s;if(st.x<0){st.x=W;st.y=rnd(24,H-14)}}let mx=0,my=0;if(keys.ArrowLeft||keys.KeyA)mx--;if(keys.ArrowRight||keys.KeyD)mx++;if(keys.ArrowUp||keys.KeyW)my--;if(keys.ArrowDown||keys.KeyS)my++;let l=Math.hypot(mx,my)||1;sh.x=clamp(sh.x+mx/l*sh.speed*72*dt,10,W-14);sh.y=clamp(sh.y+my/l*sh.speed*72*dt,30,H-18);if(keys.Space&&sh.cd<=0&&sh.ammo>0){sh.ammo--;sh.cd=Math.max(.075,.18-sh.gun*.025);const sp=sh.gun>=2?[-.08,.08]:[0];for(const a of sp)S.bul.push({x:sh.x+6,y:sh.y,vx:170,vy:a*170,life:1.2})}if(press('KeyZ','z')&&sh.over<=0&&sh.cells>0){sh.over=8;sh.inv=1.6;sh.hp=clamp(sh.hp+9,0,sh.max);burst(sh.x,sh.y,C.cyan,18)}if(press('KeyX','x')&&sh.flare>0){sh.flare--;for(const e of S.en)if(e.type!=='debris'){e.conf=2.3;e.vx*=-.4}burst(sh.x,sh.y,C.yellow,26)}if(S.spawn<=0){spawn(sec);S.spawn=Math.max(.18,rnd(.7,1.4)/sec.swarm)}if(sec.id===4&&S.timer>sec.dur*.72&&Math.random()<.04)spawn({...sec,shoot:.8,mine:.2});for(const b of S.bul){b.x+=b.vx*dt;b.y+=b.vy*dt;b.life-=dt}S.bul=S.bul.filter(b=>b.life>0&&b.x<W+8);for(const e of S.en){e.conf-=dt;if(e.type==='mine'||e.type==='debris'||e.type==='bolt'){e.x+=e.vx*dt;e.y+=e.vy*dt}else{const ty=e.conf>0?e.y+Math.sin(S.timer*8+e.x)*40:sh.y;e.vx=-e.speed;e.vy+=clamp((ty-e.y)*.9,-45,45)*dt;e.vy=clamp(e.vy,-42,42);e.x+=e.vx*dt;e.y+=e.vy*dt}if(e.type==='shoot'){e.cd-=dt;if(e.cd<=0&&e.x>60){e.cd=rnd(1.2,2.2);S.en.push({type:'bolt',x:e.x-4,y:e.y,vx:-78,vy:rnd(-14,14),hp:1,r:2,col:C.cyan,dmg:8,conf:0})}}}
 for(const b of S.bul)for(const e of S.en){if(e.type==='bolt')continue;if(Math.hypot(b.x-e.x,b.y-e.y)<e.r+2){e.hp--;b.life=0;spark(e.x,e.y,e.col);if(e.hp<=0){e.dead=1;burst(e.x,e.y,e.col,6)}break}}
 for(const e of S.en){if(e.dead)continue;if(Math.hypot(sh.x-e.x,sh.y-e.y)<sh.r+e.r){e.dead=1;damage(e.dmg||12);burst(e.x,e.y,C.red,8)}}for(const e of S.en)if(e.x<-8&&!e.dead){e.dead=1;if(e.type!=='debris'){sh.cargo-=e.type==='swarm'?6:10;if(sh.people>0&&Math.random()<.25)sh.people=Math.max(0,sh.people-1)}}S.en=S.en.filter(e=>!e.dead&&e.x>-20&&e.x<W+30&&e.y>20&&e.y<H+20);for(const p of S.pt){p.x+=p.vx*dt;p.y+=p.vy*dt;p.life-=dt}S.pt=S.pt.filter(p=>p.life>0);if(sh.hp<=0||sh.cargo<=0)end(false);else if(S.timer>=sec.dur)end(true)}
