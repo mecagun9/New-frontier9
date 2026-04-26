@@ -2,16 +2,30 @@
 <html lang="ko">
 <head>
 <meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
 <title>New Frontier 9 / Void Courier Prototype</title>
 <style>
-html,body{margin:0;height:100%;background:#050505;color:#ddd;font-family:Consolas,monospace;overflow:hidden}#wrap{height:100%;display:flex;align-items:center;justify-content:center;gap:18px;padding:12px;box-sizing:border-box}canvas{width:min(92vw,1024px);height:auto;image-rendering:pixelated;border:4px solid #222;box-shadow:0 0 0 2px #555,0 0 32px #000;background:#000}#help{max-width:330px;font-size:13px;line-height:1.5;color:#aaa}b{color:#fff}.k{color:#ffff33}@media(max-width:900px){#wrap{flex-direction:column}#help{max-width:92vw}}
+html,body{margin:0;height:100%;background:#050505;color:#ddd;font-family:Consolas,monospace;overflow:hidden;touch-action:none}#wrap{height:100%;display:flex;align-items:center;justify-content:center;gap:18px;padding:12px;box-sizing:border-box}canvas{width:min(92vw,1024px);height:auto;image-rendering:pixelated;border:4px solid #222;box-shadow:0 0 0 2px #555,0 0 32px #000;background:#000}#help{max-width:330px;font-size:13px;line-height:1.5;color:#aaa}b{color:#fff}.k{color:#ffff33}#mobileControls{display:none;position:fixed;left:0;right:0;bottom:0;height:156px;pointer-events:none;z-index:10}.pad,.act{position:absolute;bottom:14px;display:grid;gap:8px;pointer-events:auto}.pad{left:14px;grid-template-columns:48px 48px 48px;grid-template-rows:48px 48px 48px}.act{right:14px;grid-template-columns:54px 54px 54px;grid-template-rows:54px 54px}.btn{border:2px solid #666;background:rgba(0,0,0,.58);color:#ffff33;font:700 13px Consolas,monospace;border-radius:8px;box-shadow:0 0 0 1px #111 inset;user-select:none;-webkit-user-select:none}.btn:active,.btn.on{background:rgba(215,215,0,.26);color:#fff}.pad .up{grid-column:2;grid-row:1}.pad .left{grid-column:1;grid-row:2}.pad .down{grid-column:2;grid-row:3}.pad .right{grid-column:3;grid-row:2}.act .fire{grid-column:2/4;grid-row:1}.act .z{grid-column:1;grid-row:2}.act .x{grid-column:2;grid-row:2}.act .enter{grid-column:3;grid-row:2}@media(max-width:900px){#wrap{flex-direction:column}#help{max-width:92vw}}@media(max-width:760px),(pointer:coarse){#wrap{height:calc(100% - 156px);padding:6px;justify-content:flex-start;gap:6px}canvas{width:min(98vw,calc((100vh - 176px)*1.333));max-height:calc(100vh - 176px);border-width:3px}#help{font-size:11px;line-height:1.25;max-height:70px;overflow:hidden;opacity:.78}#mobileControls{display:block}}@media(max-height:560px) and (orientation:landscape){#wrap{height:100%;padding:4px 170px 4px 170px;justify-content:center}canvas{width:min(calc(100vw - 350px),calc(100vh - 20px)*1.333);max-height:calc(100vh - 20px)}#help{display:none}#mobileControls{height:100%;bottom:0}.pad{bottom:18px}.act{bottom:18px}}
 </style>
 </head>
 <body>
 <div id="wrap">
 <canvas id="game" width="768" height="576"></canvas>
 <div id="help"><b>NEW FRONTIER 9 / VOID COURIER</b><br><br>ZX 스펙트럼풍 운송 로그라이트 1차 프로토타입.<br>구간 정보를 분석하고, 무엇을 실을지 결정한 뒤 수송선을 직접 몰고 돌파합니다.<br><br><span class="k">↑↓←→ / WASD</span> 이동<br><span class="k">SPACE</span> 발사<br><span class="k">Z</span> 실드 과충전<br><span class="k">X</span> 플레어 교란<br><span class="k">ENTER</span> 선택/진행<br><span class="k">BACKSPACE</span> 뒤로/적재 제거<br><span class="k">R</span> 재시작<br><br>마우스는 사용하지 않는 방향으로 설계.</div>
+</div>
+<div id="mobileControls" aria-label="mobile controls">
+  <div class="pad">
+    <button class="btn up" data-key="ArrowUp">▲</button>
+    <button class="btn left" data-key="ArrowLeft">◀</button>
+    <button class="btn right" data-key="ArrowRight">▶</button>
+    <button class="btn down" data-key="ArrowDown">▼</button>
+  </div>
+  <div class="act">
+    <button class="btn fire" data-key="Space">FIRE</button>
+    <button class="btn z" data-key="KeyZ">Z</button>
+    <button class="btn x" data-key="KeyX">X</button>
+    <button class="btn enter" data-key="Enter">OK</button>
+  </div>
 </div>
 <script>
 (()=>{
@@ -20,6 +34,7 @@ const canvas=document.getElementById('game'),ctx=canvas.getContext('2d');ctx.ima
 const W=256,H=192,screen=document.createElement('canvas');screen.width=W;screen.height=H;const g=screen.getContext('2d');g.imageSmoothingEnabled=false;
 const C={black:'#000',blue:'#0000d7',red:'#d70000',mag:'#d700d7',green:'#00d700',cyan:'#00d7d7',yellow:'#d7d700',white:'#d7d7d7',bw:'#fff',br:'#f33',bg:'#3f3',bc:'#3ff',by:'#ff3'};
 const keys={};addEventListener('keydown',e=>{keys[e.code]=1;if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space','Backspace'].includes(e.code))e.preventDefault();if(e.code==='KeyR')reset()});addEventListener('keyup',e=>keys[e.code]=0);
+document.querySelectorAll('[data-key]').forEach(btn=>{const code=btn.dataset.key;const on=e=>{e.preventDefault();keys[code]=1;btn.classList.add('on')};const off=e=>{e&&e.preventDefault();keys[code]=0;btn.classList.remove('on')};btn.addEventListener('pointerdown',on);btn.addEventListener('pointerup',off);btn.addEventListener('pointercancel',off);btn.addEventListener('pointerleave',off)});
 const rnd=(a,b)=>a+Math.random()*(b-a),clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 const sectors=[
 {id:1,name:'SECTOR 01 / DEAD BEACON',free:'BIO LOW / DEBRIS LOW / SIGNAL STABLE',scan:['small swarm pockets ahead','ammo demand low; cargo capacity safe','rear ambush chance 22%; shields optional'],danger:1,swarm:.8,shoot:.12,mine:.04,debris:.03,dur:38,col:C.green},
