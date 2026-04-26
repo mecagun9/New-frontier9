@@ -1,0 +1,31 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8" />
+<title>VOID COURIER</title>
+<style>
+body{margin:0;background:#000;color:#0f0;font-family:monospace}
+canvas{display:block;margin:auto;background:#000;image-rendering:pixelated}
+</style>
+</head>
+<body>
+<canvas id="c" width="256" height="192"></canvas>
+<script>
+const c=document.getElementById('c');const x=c.getContext('2d');
+let ship={x:40,y:96,ammo:30,hp:100};let keys={};
+addEventListener('keydown',e=>keys[e.code]=1);
+addEventListener('keyup',e=>keys[e.code]=0);
+function loop(){
+ x.fillStyle="#000";x.fillRect(0,0,256,192);
+ if(keys['ArrowUp'])ship.y-=1;
+ if(keys['ArrowDown'])ship.y+=1;
+ if(keys['ArrowLeft'])ship.x-=1;
+ if(keys['ArrowRight'])ship.x+=1;
+ x.fillStyle="#0ff";x.fillRect(ship.x,ship.y,4,4);
+ x.fillStyle="#0f0";x.fillText("HP:"+ship.hp+" AMMO:"+ship.ammo,4,10);
+ requestAnimationFrame(loop);
+}
+loop();
+</script>
+</body>
+</html>
